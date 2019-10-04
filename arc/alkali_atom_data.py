@@ -83,7 +83,6 @@
     Module
     ------
 """
-
 from __future__ import division, print_function, absolute_import
 
 from .alkali_atom_functions import *
@@ -172,6 +171,7 @@ class Caesium(AlkaliAtom):
     #: (eV), Ref. [#jd2016]_.
     ionisationEnergy = 31406.4677325*1.e2\
         *physical_constants["inverse meter-electron volt relationship"][0]
+    
 
     NISTdataLevels = 25
 

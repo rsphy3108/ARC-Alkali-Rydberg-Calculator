@@ -2,7 +2,7 @@
 
 from __future__ import division, print_function, absolute_import
 from scipy import floor, sqrt
-from scipy.special  import factorial
+from scipy.misc import factorial
 from sympy.physics.wigner import clebsch_gordan as CG_sympy
 from sympy.physics.wigner import wigner_3j as Wigner3j_sympy
 from sympy.physics.wigner import wigner_6j as Wigner6j_sympy
@@ -20,13 +20,11 @@ else:
 
 wignerPrecal = True  # use precalculated values - tested only for the main algorithm calls
 wignerPrecalJmax = 23
-wignerPrecal3j = np.load(os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                      "data","precalculated3j.npy"),
-                         encoding = 'latin1', allow_pickle=True)
+wignerPrecal3j = np.load(os.path.join(os.path.dirname(os.path.realpath(__file__)),\
+                                      "data","precalculated3j.npy"), encoding = 'latin1')
 
-wignerPrecal6j = np.load(os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                      "data","precalculated6j.npy"),
-                         encoding = 'latin1', allow_pickle=True)
+wignerPrecal6j = np.load(os.path.join(os.path.dirname(os.path.realpath(__file__)),\
+                         "data","precalculated6j.npy"), encoding = 'latin1')
 
 def Wigner3j(j1,j2,j3,m1,m2,m3):
 
@@ -132,7 +130,7 @@ def Wigner3j(j1,j2,j3,m1,m2,m3):
                                                  factorial(j3-m3) )
 
 
-def Wigner6j(j1,j2,j3,J1,J2,J3):
+def Wigner6j(j1,j2,j3,J1,J2,J3,outputError = True):
     # if possible, use precalculated values
     global wignerPrecal
     if wignerPrecal and ((roundPy2(2*j2)==1) and (J2==1 or J2==2)and \
@@ -167,17 +165,20 @@ def Wigner6j(j1,j2,j3,J1,J2,J3):
 
     # Check that the js and Js are only integer or half integer
     if ( ( 2*j1 != roundPy2(2*j1) ) | ( 2*j2 != roundPy2(2*j2) ) | ( 2*j2 != roundPy2(2*j2) ) | ( 2*J1 != roundPy2(2*J1) ) | ( 2*J2 != roundPy2(2*J2) ) | ( 2*J3 != roundPy2(2*J3) ) ):
-        print('All arguments must be integers or half-integers.')
+        if outputError:
+            print('All arguments must be integers or half-integers.')
         return -1
 
 # Check if the 4 triads ( (j1 j2 j3), (j1 J2 J3), (J1 j2 J3), (J1 J2 j3) ) satisfy the triangular inequalities
     if ( ( abs(j1-j2) > j3 ) | ( j1+j2 < j3 ) | ( abs(j1-J2) > J3 ) | ( j1+J2 < J3 ) | ( abs(J1-j2) > J3 ) | ( J1+j2 < J3 ) | ( abs(J1-J2) > j3 ) | ( J1+J2 < j3 ) ):
-        print('6j-Symbol is not triangular!')
+        #if outputError:
+        #    print('6j-Symbol is not triangular!')
         return 0
 
     # Check if the sum of the elements of each traid is an integer
     if ( ( 2*(j1+j2+j3) != roundPy2(2*(j1+j2+j3)) ) | ( 2*(j1+J2+J3) != roundPy2(2*(j1+J2+J3)) ) | ( 2*(J1+j2+J3) != roundPy2(2*(J1+j2+J3)) ) | ( 2*(J1+J2+j3) != roundPy2(2*(J1+J2+j3)) ) ):
-        print('6j-Symbol is not triangular!')
+        #if outputError:
+            ##print('6j-Symbol is not triangular!')
         return 0
 
     # Arguments for the factorials
@@ -211,7 +212,7 @@ def TriaCoeff(a,b,c):
 # Jojann Goetz
 
 from scipy.special import jv, legendre, sph_harm, jacobi
-from scipy.special import  comb
+from scipy.misc import  comb
 from numpy import floor, sqrt, sin, cos, exp, power
 from numpy import conj as conjugate
 from math import pi
@@ -317,7 +318,8 @@ def CG(j1,m1,j2,m2,j3,m3):
     """
         returns < j1,m1,j2,m2 | j1,j2, j3, m3 >
     """
-    return Wigner3j(j1,j2,j3,m1,m2,-m3)*sqrt(2*j3+1)*(-1)**(j1-j2+m3)
+    #LIZZY tHIS NEEDS TO BE CHANGED
+    return Wigner3j(j1,j2,j3,m1,m2,-m3)*sqrt(2*j3+1)*(-1.0)**(j1-j2+m3)
 
 
 class wignerDmatrix:

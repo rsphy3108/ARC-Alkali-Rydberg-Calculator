@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 
 """
@@ -10,7 +11,7 @@
 
 from __future__ import print_function
 
-from math import exp,log,sqrt
+from math import exp,log,sqrt,ceil, floor
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 import numpy as np
@@ -24,7 +25,9 @@ from scipy.constants import e as C_e
 from scipy.optimize import curve_fit
 
 # for matrices
-from numpy.linalg import eigh
+from numpy import zeros,savetxt, complex64,complex128
+
+from numpy.linalg import eigvalsh,eig,eigh
 from numpy.ma import conjugate
 from numpy.lib.polynomial import real
 
@@ -35,7 +38,8 @@ from scipy.special.specfun import fcoef
 import sys
 if sys.version_info > (2,):
     xrange = range
-from .alkali_atom_functions import printStateString, _EFieldCoupling, printStateLetter,printStateStringLatex
+from .general_atom_functions import printStateString, _EFieldCoupling, printStateLetter,printStateStringLatex
+from .earth_alkali_atom_functions import DivalentAtom
 
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib
@@ -66,6 +70,7 @@ class StarkMap:
                 :obj:`alkali_atom_data.Potassium41`,
                 :obj:`alkali_atom_data.Rubidium85`,
                 :obj:`alkali_atom_data.Rubidium87`,
+                
                 :obj:`alkali_atom_data.Caesium` }
                 Select the alkali metal for energy level
                 diagram calculation
@@ -195,28 +200,48 @@ class StarkMap:
 
         # STARK memoization
         self.eFieldCouplingSaved = False
+        self.starklist =[]
 
-
-
-    def _eFieldCouplingDivE(self,n1,l1,j1,mj1,n2,l2,j2,mj2):
+    def _eFieldCouplingDivE(self,n1,l1,j1,mj1,n2,l2,j2,mj2,s= 0.5):
         # eFied coupling devided with E (witout actuall multiplication to getE)
         # delta(mj1,mj2') delta(l1,l2+-1)
         if ( (abs(mj1-mj2)>0.1) or (abs(l1-l2) !=1) ):
             return 0
 
-        # matrix element
-        result = self.atom.getRadialMatrixElement(n1,l1,j1,n2,l2,j2)*\
+        # matrix element LIZZY HAVE CHANGED THIS SO DON@T USE LITERATURES
+       #print(n1,l1,j1,mj1,n2,l2,j2,mj2,s)
+        
+        result = self.atom.getRadialMatrixElement(n1,l1,j1,n2,l2,j2,s,False)*\
                 physical_constants["Bohr radius"][0]*C_e
 
-        sumPart = self.eFieldCouplingSaved.getAngular(l1,j1,mj1,l2,j2,mj2)
+        if isinstance(self.atom, DivalentAtom):
+            sumPart =0
+            for p in range(-1,2):
+                sumPart += self.atom.getAngularMatrixElement(l1,s,j1, mj1,l2,s,j2,mj2,p)
+                
+                #print(self.atom.getAngularMatrixElement(l1,s,j1, mj1,l2,s,j2,mj2,p))
+                #print(self.atom.getAngularMatrixElementPaul(l1,s,j1, mj1,l2,s,j2,mj2,p))
+                #print()
+        else:
+            sumPart = self.eFieldCouplingSaved.getAngular(l1,j1,mj1,l2,j2,mj2,s)
 
-        return result*sumPart
+        #print(sumPart**2)
+        #print(self.atom.getAngularMatrixElementSrSr(l1,j1, mj1,l2,j2,mj2,l1,j1,mj1,l2,j2,mj2,s,1,1))
+        #print()
+        if(abs(result*sumPart) > 0.0001):
+         
+            self.starklist.append([result*sumPart,n1,s*2+1, l1,j1, mj1, n2,s*2+1, l2,j2, mj2, result, sumPart ])
+        
+        #f(n1 ==38 and l1== 13 and j1 ==14 and n2 == 38 and l2 ==14 and j2 ==14):
+        #   print(result*sumPart)
+        
+        return -result*sumPart
 
     def _eFieldCoupling(self,n1,l1,j1,mj1,n2,l2,j2,mj2,eField):
         return self._eFieldCouplingDivE(n1,l1,j1,mj1,n2,l2,j2,mj2)*eField
 
 
-    def defineBasis(self, n, l, j, mj, nMin, nMax, maxL, Bz=0,
+    def defineBasis(self, n, l, j, mj, nMin, nMax, maxL,s =0.5, Bz=0,
                     progressOutput=False, debugOutput=False):
         """
             Initializes basis of states around state of interest
@@ -254,7 +279,7 @@ class StarkMap:
         """
         global wignerPrecal
         wignerPrecal = True
-        self.eFieldCouplingSaved = _EFieldCoupling()
+        self.eFieldCouplingSaved = _EFieldCoupling(0,0,0)
 
         states = []
 
@@ -262,18 +287,63 @@ class StarkMap:
         self.n = n; self.l =l; self.j=j
         self.mj = mj; self.nMin = nMin; self.nMax = nMax; self.maxL = maxL
         self.Bz = Bz
+        self.s = s
         # save calculation details END
 
+        nbelow =  nMin -n
+        nabove = nMax -n
+        
+        nMin = int(ceil(n- self.atom.getQuantumDefect(n,l,j,s)+nbelow))
+        nMax = int(floor(n -  self.atom.getQuantumDefect(n,l,j,s)+nabove))
+        
+    
+        print(nMin)
+        print(nMax)
+        
+        
+        def getStarkStates(n_min, n_max, l_max, m, s):
+            state_list = []
+            #Get the lowest possible l
+            l_min = int(m-s)
+            l_min = max(0,l_min)
+            
+            j_min = m
+            
+            for n in range(n_min, n_max+6):
+                for l in range(l_min, 4):
+                    for j in range(max(abs(l-s),j_min), l+s+1):
+                        nu = n - self.atom.getQuantumDefect(n,l,j,s)
+                        if(n_min<nu and nu<n_max):
+                            state_list.append([n,l,j,m,s])
+            for n in range(n_min, n_max+1):
+                for l in range(max(4,l_min), min(n,l_max )):
+                    for j  in range(max(abs(l-s),j_min), l+s+1):
+                        state_list.append([n,l,j,m,s])
+            return state_list
+    
+        if(isinstance(self.atom, DivalentAtom)):
+            states = getStarkStates(nMin,nMax,maxL,mj,s)
+        else:
+            for tn in xrange(nMin,nMax):
+    
+                for tl in xrange(min(maxL+1,tn)):
+                    
+                    #need to make all possible J states
+                    
+                    if self.s == 0.5 :
+                    
+                        if (abs(mj)-0.1<=float(tl)+self.s):
+                            #we also need to make all possible j
+                            states.append([tn,tl,float(tl)+self.s,mj])
+                        if (tl>0) and  (abs(mj)-0.1<=float(tl)-self.s):
+                                states.append([tn,tl,float(tl)-self.s,mj,self.s])
+                                
+                    else: 
+                        for tj in range(max(abs(tl-self.s),0),tl+self.s +1):
+                            if (abs(mj)-0.1<=tj):
+                                states.append(([tn,tl,tj,mj,self.s]))
 
-        for tn in xrange(nMin,nMax):
-
-            for tl in xrange(min(maxL+1,tn)):
-                if (abs(mj)-0.1<=float(tl)+0.5):
-                    states.append([tn,tl,float(tl)+0.5,mj])
-
-                if (tl>0) and  (abs(mj)-0.1<=float(tl)-0.5):
-                    states.append([tn,tl,float(tl)-0.5,mj])
-
+        print(states)
         dimension = len(states)
         if progressOutput:
             print("Found ",dimension," states.")
@@ -312,13 +382,13 @@ class StarkMap:
 
             # add diagonal element
             self.mat1[ii][ii] = self.atom.getEnergy(states[ii][0],\
-                                               states[ii][1],states[ii][2])\
+                                               states[ii][1],states[ii][2],self.s)\
                                 * C_e/C_h*1e-9 \
-                                + self.atom.getZeemanEnergyShift(
-                                                states[ii][1],
-                                                states[ii][2],
-                                                states[ii][3],
-                                                self.Bz) / C_h * 1.0e-9
+                                #+ self.atom.getZeemanEnergyShift(
+                                #                states[ii][1],
+                                #                states[ii][2],
+                                #                states[ii][3],
+                                #                self.Bz) / C_h * 1.0e-9
             # add off-diagonal element
 
             for jj in xrange(ii+1,dimension):
@@ -327,8 +397,9 @@ class StarkMap:
                                                     states[ii][2],mj,\
                                                     states[jj][0],\
                                                     states[jj][1],\
-                                                    states[jj][2],mj)*\
-                            1.e-9/C_h
+                                                    states[jj][2],mj,self.s)*\
+                            1.0e-9/C_h
+                #print(coupling)
                 self.mat2[jj][ii] = coupling
                 self.mat2[ii][jj] = coupling
 
@@ -343,7 +414,7 @@ class StarkMap:
         self.eFieldCouplingSaved = False
         return 0
 
-    def diagonalise(self,eFieldList,drivingFromState = [0,0,0,0,0],
+    def diagonalise(self,eFieldList,sub_e = 0,drivingFromState = [0,0,0,0,0],
                         progressOutput=False,debugOutput=False):
         """
             Finds atom eigenstates in a given electric field
@@ -429,6 +500,10 @@ class StarkMap:
         self.highlight = []
         self.composition = []
 
+        #LIZZY calculate the eigenvales of the zero field
+        #ev_0,egvector_0 = eigh(self.mat1)
+
+        #print(ev_0)
         if progressOutput:
             print("Finding eigenvectors...")
         progress = 0.
@@ -441,9 +516,10 @@ class StarkMap:
 
             m = self.mat1+self.mat2*eField
 
+            
             ev,egvector = eigh(m)
-
-            self.y.append(ev)
+        
+            self.y.append(ev-sub_e)
             if (drivingFromState[0]<0.1):
                 sh = []
                 comp = []
@@ -495,7 +571,7 @@ class StarkMap:
 
         commonHeader = "Export from Alkali Rydberg Calculator (ARC) %s.\n" % ts
         commonHeader += ("\n *** Stark Map for %s %s m_j = %d/2. ***\n\n" % (self.atom.elementName,
-                        printStateString(self.n, self.l, self.j), int(round(2.*self.mj)) ) )
+                        printStateString(self.n, self.l, self.j,self.s), int(round(2.*self.mj)) ) )
         commonHeader += (" - Included states - principal quantum number (n) range [%d-%d].\n" %\
                          (self.nMin, self.nMax))
         commonHeader += (" - Included states with orbital momentum (l) in range [%d,%d] (i.e. %s-%s).\n"%\
@@ -551,7 +627,7 @@ class StarkMap:
 
     def plotLevelDiagram(self,units=1,highlighState=True,progressOutput=False,\
                         debugOutput=False,highlightColour='red',
-                        addToExistingPlot = False):
+                        addToExistingPlot = False,s =0.5):
         """
             Makes a plot of a stark map of energy levels
 
@@ -587,6 +663,7 @@ class StarkMap:
         n = originalState[0]
         l = originalState[1]
         j = originalState[2]
+        #s = originalState[4]
 
         existingPlot = False
         if (self.fig == 0 or not addToExistingPlot):
@@ -613,7 +690,7 @@ class StarkMap:
         eFieldList = np.array(eFieldList)
         y = np.array(y)
 
-        eFieldList = eFieldList[sortOrder]
+        eFieldList = eFieldList[sortOrder]#*2
         y = y[sortOrder]
         yState = yState[sortOrder]
 
@@ -634,7 +711,7 @@ class StarkMap:
                     cb = matplotlib.colorbar.ColorbarBase(cax, cmap=cm, norm=cNorm)
                     if (self.drivingFromState[0]<0.1):
                         cb.set_label(r"$|\langle %s | \mu \rangle |^2$" % \
-                                 printStateStringLatex(n,l,j))
+                                 printStateStringLatex(n,l,j,s),fontsize = 20)
                     else:
                         cb.set_label(r"$( \Omega_\mu | \Omega )^2$")
 
@@ -644,7 +721,7 @@ class StarkMap:
 
             if not highlighState:
                 self.ax.scatter(eFieldList/100.,y,\
-                                s=1,color="k",picker=5) # in GHz
+                                s=1,color="lightgray",picker=5) # in GHz
             else:
                 cm = rvb
                 cNorm  = matplotlib.colors.Normalize(vmin=0., vmax=1.)
@@ -656,7 +733,9 @@ class StarkMap:
                                                           cmap=cm, norm=cNorm)
                     if (self.drivingFromState[0]<0.1):
                         cb.set_label(r"$|\langle %s | \mu \rangle |^2$" %\
-                                  printStateStringLatex(n,l,j))
+                                  printStateStringLatex(n,l,j,s), fontsize=20)
+                        #cb.get_yticklabels().set_fontsize(20)
+                        cax.tick_params(labelsize=20) 
                     else:
                         cb.set_label(r"$(\Omega_\mu / \Omega )^2$")
 
@@ -665,17 +744,21 @@ class StarkMap:
 
         if (units==1):
             ## in cm^{-1}
-            uppery = self.atom.getEnergy(n,l,j)*C_e/C_h*1e-9*0.03336+10
-            lowery = self.atom.getEnergy(n,l,j)*C_e/C_h*1e-9*0.03336-10
+            uppery = self.atom.getEnergy(n,l,j,s)*C_e/C_h*1e-9*0.03336+10
+            lowery = self.atom.getEnergy(n,l,j,s)*C_e/C_h*1e-9*0.03336-10
             self.ax.set_ylabel("State energy, $E/(h c)$ (cm$^{-1}$)")
         else:
             ## in GHz
-            uppery = self.atom.getEnergy(n,l,j)*C_e/C_h*1e-9+5
-            lowery = self.atom.getEnergy(n,l,j)*C_e/C_h*1e-9-5
+            
+            uppery = self.atom.getEnergy(n,l,j,s)*C_e/C_h*1e-9+5
+            lowery = self.atom.getEnergy(n,l,j,s)*C_e/C_h*1e-9-5
             self.ax.set_ylabel(r"State energy, $E/h$ (GHz)")
 
 
-        self.ax.set_ylim(lowery,uppery)
+        self.ax.set_ylim(-20,20)
+        #self.ax.set_ylim(lowery,uppery)
+
+        #self.ax.invert_yaxis()
         ##
         self.ax.set_xlim(min(eFieldList)/100.,max(eFieldList)/100.)
         return 0
@@ -786,12 +869,12 @@ class StarkMap:
             index -= 1
         return mainStates
 
-    def _addState(self,n1,l1,j1,mj1):
+    def _addState(self,n1,l1,j1,mj1, s =0.5):
         return "|%s m_j=%d/2\\rangle" %\
-             (printStateStringLatex(n1, l1, j1),int(2*mj1))
+             (printStateStringLatex(n1, l1, j1,s),int(2*mj1))
 
     def getPolarizability(self, maxField=1.e10, showPlot = False,\
-                           debugOutput = False, minStateContribution=0.0):
+                           debugOutput = False, minStateContribution=0.0,s = 0.5):
         """
             Returns the polarizability of the state (set during the
             initalization process)
@@ -826,7 +909,7 @@ class StarkMap:
         n = originalState[0]
         l = originalState[1]
         j = originalState[2]
-        energyOfOriginalState = self.atom.getEnergy(n,l,j)*C_e/C_h*1e-9 # in  GHz
+        energyOfOriginalState = self.atom.getEnergy(n,l,j,s)*C_e/C_h*1e-9 # in  GHz
 
         if debugOutput:
             print("finding original state for each electric field value")
@@ -971,7 +1054,7 @@ class LevelPlot:
         self.spectraLine = []
 
 
-    def makeLevels(self,nFrom,nTo,lFrom,lTo):
+    def makeLevels(self,nFrom,nTo,lFrom,lTo,s=0.5):
         """
             Constructs energy level diagram in a given range
 
@@ -990,30 +1073,41 @@ class LevelPlot:
         self.nTo = nTo
         self.lFrom = lFrom
         self.lTo = lTo
-
+        self.s = s
         # find all the levels within this space restrictions
         nFrom = max(nFrom,self.atom.groundStateN)
         while nFrom<=nTo:
             l = lFrom
             while l<=min(lTo,4,nFrom-1):
-                if (l>0.5):
+                #if we do not make a negative j
+                for i in range(int(abs(l-self.s)),int(l+self.s+1),1):
                     self.listX.append(l)
-                    self.listY.append(self.atom.getEnergy(nFrom,l,l-0.5))
-                    self.levelLabel.append([nFrom, l, l-0.5])
-                self.listX.append(l)
-                self.listY.append(self.atom.getEnergy(nFrom,l,l+0.5))
-                self.levelLabel.append([nFrom, l, l+0.5])
+                    self.listY.append(self.atom.getEnergy(nFrom,l,i,self.s))
+                    self.levelLabel.append([nFrom, l, i, self.s])
+                    #self.listX.append(l)
+                    #self.listY.append(self.atom.getEnergy(nFrom,l,l+self.self.s))
+                    #self.levelLabel.append([nFrom, l, l+self.s])
                 l = l+1
             nFrom += 1
         # if user requested principal quantum nuber below the
         # ground state principal quantum number
         # add those L states that are higher in energy then the ground state
-        for state in self.atom.extraLevels:
-            if state[1]<=lTo and state[0]>=self.nFrom:
-                self.listX.append(state[1])
-                self.listY.append(self.atom.getEnergy(state[0],state[1],state[2]))
-                self.levelLabel.append(state)
-
+        if isinstance(self.atom, DivalentAtom): 
+             for state,n in self.atom.extraLevels.items():
+                if(int(state[0])== 2*self.s+1):
+                    l,s,j = self.atom.getQuantumNumbers(state)
+                    if l<=lTo and n>=self.nFrom:
+                        self.listX.append(l)
+                        self.listY.append(self.atom.getEnergy(n,l,j,self.s))
+                        self.levelLabel.append([n,l,j,self.s])
+         
+        else:    
+            for state in self.atom.extraLevels:
+                if state[1]<=lTo and state[0]>=self.nFrom:
+                    self.listX.append(state[1])
+                    self.listY.append(self.atom.getEnergy(state[0],state[1],state[2],self.s))
+                    self.levelLabel.append(state)
+                    
     def makeTransitionMatrix(self,environmentTemperature = 0.0,printDecays=True):
         self.transitionMatrix =[]
 
@@ -1213,28 +1307,29 @@ class LevelPlot:
             state = self.findState((xdata[0]+xdata[0])/2., ydata[0])
             if (self.state1[0]==0 or (state[1]== self.state2[1])):
                 self.state1 = state
-                self.ax.set_title(printStateString(state[0],state[1],state[2])+" -> ")
+                self.ax.set_title(printStateString(state[0],state[1],state[2],state[3])+" -> ")
                 self.state2=[-1,-1,-1]
             else:
                 title = ""
                 if (state[1] != self.state1[1]) and (state[1]!= self.state2[1]):
                     title = printStateString(self.state1[0],\
                                              self.state1[1],\
-                                             self.state1[2])+\
+                                             self.state1[2],
+                                             self.state1[3])+\
                             " -> "+\
-                            printStateString(state[0],state[1],state[2])+" "
+                            printStateString(state[0],state[1],state[2],state[3])+" "
                     title = title+(" %.2f nm (%.3f GHz)" % \
                                    (self.atom.getTransitionWavelength(self.state1[0],\
                                                                       self.state1[1],\
                                                                       self.state1[2],\
                                                                       state[0],state[1],\
-                                                                      state[2])*1e9,\
+                                                                      state[2],state[3])*1e9,\
                                     self.atom.getTransitionFrequency(self.state1[0],\
                                                                      self.state1[1],\
                                                                      self.state1[2],\
                                                                      state[0],\
                                                                      state[1],\
-                                                                     state[2])*1e-9))
+                                                                     state[2],state[3])*1e-9))
                     self.ax.set_title(title)
                     self.state1=[0,0,0]
 
@@ -1266,8 +1361,7 @@ def printState(n,l,j):
     """
 
     print(n," ",printStateLetter(l),(" %.0d/2" % (j*2)))
-
-def printStateString(n,l,j):
+def printStateString(n,l,j,s=0.5):
     """
         Returns state spectroscopic label for numeric :math:`n`,
         :math:`l`, :math:`s` label of the state
@@ -1280,5 +1374,7 @@ def printStateString(n,l,j):
         Returns:
             string: label for the state in standard spectroscopic notation
     """
-
-    return str(n)+" "+printStateLetter(l)+(" %.0d/2" % (j*2))
+    if(j % 1 !=0 ):
+        return str(n)+" "+printStateLetter(l)+(" %.0d/2" % (j*2))
+    else:
+        return str(n)+" "+(" %.0d " % (2*s+1))+printStateLetter(l)+(" %.0d" % (j))
