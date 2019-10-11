@@ -106,12 +106,7 @@ class Atom(object):
     NISTdataLevels = 0
     scaledRydbergConstant = 0 #: in eV
 
-    quantumDefect = [[[0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0],\
-                      [0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0],\
-                      [0.0,0.0,0.0,0.0,0.0,0.0]],
-                     [[0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0],\
-                      [0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0],\
-                      [0.0,0.0,0.0,0.0,0.0,0.0]]]
+    
     """ Contains list of modified Rydberg-Ritz coefficients for calculating
         quantum defects for [[ :math:`S_{1/2},P_{1/2},D_{3/2},F_{5/2}`],
         [ :math:`S_{1/2},P_{3/2},D_{5/2},F_{7/2}`]]."""
@@ -164,9 +159,6 @@ class Atom(object):
 
         self._databaseInit()
 
-        print('gothere')
-        print(self.c)
-
         if self.cpp_numerov:
             from .arc_c_extensions import NumerovWavefunction
             self.NumerovWavefunction = NumerovWavefunction
@@ -188,7 +180,7 @@ class Atom(object):
                     os.path.join(self.dataFolder,self.dipoleMatrixElementFile))
                 print(e)
         # save to SQLite database
-       
+        #print(data[0])
         try:
             self.c.execute('''SELECT COUNT(*) FROM sqlite_master
                             WHERE type='table' AND name='dipoleME';''')
@@ -204,7 +196,6 @@ class Atom(object):
                     self.c.executemany('INSERT INTO dipoleME VALUES (?,?,?,?,?,?,?,?,?)', data)
                 self.conn.commit()
         except sqlite3.Error as e:
-            print('here')
             print("Error while loading precalculated values into the database")
             print(e)
             exit()
@@ -243,7 +234,6 @@ class Atom(object):
             print(e)
             exit()
 
-        self._readLiteratureValues()
 
         return
     def _databaseInit(self):
@@ -500,7 +490,6 @@ class Atom(object):
         
                 #LIZZY TEMP
                 step = 0.001
-            
                 r1,psi1_r1 = self.radialWavefunction(l1,s,j1,\
                                                        self.getEnergy(n1, l1, j1,s)/27.211,\
                                                        self.alphaC**(1/3.0),\
@@ -594,14 +583,12 @@ class Atom(object):
 
         delta_nu = nu- nu1
         delta_l = l1 -l
-        
-        #print(delta_nu)
+       
         #I am not sure if this correct 
         
         gamma  = (delta_l*l_c)/nu_c
 
         if delta_nu ==0:
-            print('gothere')
             g0 = 1
             g1 = 0
             g2 = 0
@@ -614,11 +601,10 @@ class Atom(object):
             g3 = (delta_nu/2.)*g0 + g1
 
         radial_ME = (3/2)*nu_c**2*(1-(l_c/nu_c)**(2))**0.5*(g0 + gamma*g1 + gamma**2*g2 + gamma**3*g3)
-
-        return radial_ME
+        return float(radial_ME)
 
     def getQuadrupoleMatrixElementSemiClassical(self,n,l,j,n1,l1,j1, s=0.5):#
-        dl = abs(l-l1)
+        dl = abs(l1-l)
 
         
         nu = n - self.getQuantumDefect(n,l,j,s)
@@ -632,17 +618,20 @@ class Atom(object):
         delta_l = l1 -l
 
         gamma  = (delta_l*l_c)/nu_c
+
+        if delta_nu ==0:
+            q = np.array([1,0,0,0])
+        else:
         
-        g0 = (1./(3.*delta_nu))*(mpmath.angerj(delta_nu-1.,-delta_nu) - mpmath.angerj(delta_nu+1,-delta_nu))
-        g1 = -(1./(3.*delta_nu))*(mpmath.angerj(delta_nu-1.,-delta_nu) + mpmath.angerj(delta_nu+1,-delta_nu))
+            g0 = (1./(3.*delta_nu))*(mpmath.angerj(delta_nu-1.,-delta_nu) - mpmath.angerj(delta_nu+1,-delta_nu))
+            g1 = -(1./(3.*delta_nu))*(mpmath.angerj(delta_nu-1.,-delta_nu) + mpmath.angerj(delta_nu+1,-delta_nu))
         
-        
-        q = np.zeros((4,))
-        q[0] = -(6./(5.*delta_nu**2))*g1
-        q[1] = -(6./(5.*delta_nu))*g0 + (6./5.)*np.sin((pi*delta_nu))/(pi*delta_nu**2)
-        q[2] = -(3./4.)*(6./(5.*delta_nu) *g1 +g0)
-        q[3] = 0.5*(delta_nu*0.5*q[0] +q[1])
-        
+            q = np.zeros((4,))
+            q[0] = -(6./(5.*delta_nu))*g1
+            q[1] = -(6./(5.*delta_nu))*g0 + (6./5.)*np.sin(pi*delta_nu)/(pi*delta_nu**2)
+            q[2] = -(3./4.)*(6./(5.*delta_nu) *g1 +g0)
+            q[3] = 0.5*(delta_nu*0.5*q[0] +q[1])
+            
         sm = 0
         
         if dl ==0:
@@ -656,6 +645,8 @@ class Atom(object):
             for p in range(0,4):
                 sm += gamma**(p)*q[p]
             return quadrupoleElement*sm
+        else:
+            return 0
 
     def getQuadrupoleMatrixElement(self,n1,l1,j1,n2,l2,j2,s = 0.5):
         """
@@ -681,10 +672,8 @@ class Atom(object):
         """
         dl = abs(l1-l2)
         dj = abs(j1-j2)
-
         if self.semi == False:
             if not ((dl==0 or dl==2 or dl==1)and (dj<2.1)):
-                print(here)
                 return 0
     
             if (self.getEnergy(n1, l1, j1,s)>self.getEnergy(n2, l2, j2,s)):
@@ -714,9 +703,7 @@ class Atom(object):
                 return qme[0]
     
             # if it wasn't, calculate now
-    
             step = 0.001
-            print(s)
             r1, psi1_r1 = self.radialWavefunction(l1,s,j1,\
                                                    self.getEnergy(n1, l1, j1,s)/27.211,\
                                                    self.alphaC**(1/3.0), \
@@ -1050,7 +1037,7 @@ class Atom(object):
                     n2 = int(row[3])
                     l2 = int(row[4])
                     j2 = float(row[5])
-                    s = int(row[6])
+                    s = float(row[6])/2
                     if (self.getEnergy(n1, l1, j1, s)>self.getEnergy(n2, l2, j2,s)):
                         temp = n1
                         n1 = n2
@@ -1070,15 +1057,22 @@ class Atom(object):
                                 (-1)**l1*sqrt((2.0*l1+1.0)*(2.0*l2+1.0))*\
                                 Wigner3j(l1,1,l2,0,0,0))
 
-
                     comment = row[8]
-                    typeOfSource = int(row[10])  # 0 = experiment; 1 = theory
-                    errorEstimate = float(row[11])
-                    ref = row[12]
-                    refdoi = row[13]
-                    print(dme,comment,typeOfSource,errorEstimate,ref,refdoi)
+                    if(len(row) == 13):
+                        typeOfSource = int(row[9])  # 0 = experiment; 1 = theory
+                        errorEstimate = float(row[10])
+                        ref = row[11]
+                        refdoi = row[12]
+                        
+                    else:
+                        
 
-                    literatureDME.append([n1,l1,j1*2,n2,l2,j2*2,s,dme,\
+                        typeOfSource = int(row[10])  # 0 = experiment; 1 = theory
+                        errorEstimate = float(row[11])
+                        ref = row[12]
+                        refdoi = row[13]
+
+                    literatureDME.append([n1,l1,j1*2,n2,l2,j2*2,int(s*2),dme,\
                                                typeOfSource,errorEstimate,\
                                                comment,ref,\
                                                     refdoi])
@@ -1805,55 +1799,40 @@ class _EFieldCoupling:
     def getAngular(self,l1,j1,mj1,l2,j2,mj2,s = 0.5):
         #self.c.execute('''SELECT sumPart FROM eFieldCoupling_angular WHERE
         # l1= ? AND j1_x2 = ? AND j1_mj1 = ? AND
-        # l2 = ? AND j2_x2 = ? AND j2_mj2 = ? AND s = ?
-        # ''',(l1,2*j1,2*j1+mj1,l2,j2*2,2*j2+mj2,s))
-        #answer = self.c.fetchone()
-        #if (answer):
-        #    return answer[0]
+        # l2 = ? AND j2_x2 = ? AND j2_mj2 = ? and s = ?
+        # ''',(l1,2*j1,j1+mj1,l2,j2*2,j2+mj2,s*2))
+        answer = self.c.fetchone()
+        if (answer):
+            return answer[0]
 
-        #have just rep;aced all 0.5 with self.s, if we need to change it back we can 
         # calulates sum (See PRA 20:2251 (1979), eq.(10))
         sumPart = 0.
-        if self.s == 0.5:
-            ml = mj1 + self.s
-            if (abs(ml)-0.1<l1)and(abs(ml)-0.1<l2):
-    
-                angularPart = 0.
-                if (abs(l1-l2-1)<0.1):
-                    angularPart = ((l1**2-ml**2)/((2.*l1+1.)*(2.*l1-1.)))**0.5
-                elif(abs(l1-l2+1)<0.1):
-                    angularPart = ((l2**2-ml**2)/((2.*l2+1.)*(2.*l2-1.)))**0.5
-                #print(angularPart)
-                sumPart += CG(l1,ml,self.s,mj1-ml,j1,mj1)*CG(l2,ml,self.s,mj1-ml,j2,mj2)*\
-                            angularPart
-    
-            #LIZZY maybe we should not do this if we are s = 0
-           
-            ml = mj1 - self.s
-            if (abs(ml)-0.1<l1)and(abs(ml)-0.1<l2):
-                angularPart = 0.
-                if (abs(l1-l2-1)<0.1):
-                    angularPart = ((l1**2-ml**2)/((2.*l1+1.)*(2.*l1-1.)))**0.5
-                elif(abs(l1-l2+1)<0.1):
-                    angularPart = ((l2**2-ml**2)/((2.*l2+1.)*(2.*l2-1.)))**0.5
-                sumPart += CG(l1,ml,self.s,mj1-ml,j1,mj1)*CG(l2,ml,self.s,mj1-ml,j2,mj2)*\
-                            angularPart
-                            
-        else:
-            for i in range(-self.s, self.s+1):
-                ml = mj1 + i
-                if (abs(ml)-0.1<l1)and(abs(ml)-0.1<l2):
-                    angularPart = 0.
-                    if (abs(l1-l2-1)<0.1):
-                        angularPart = ((l1**2-ml**2)/((2.*l1+1.)*(2.*l1-1.)))**0.5
-                    elif(abs(l1-l2+1)<0.1):
-                        angularPart = ((l2**2-ml**2)/((2.*l2+1.)*(2.*l2-1.)))**0.5
-                    sumPart += CG(l1,ml,self.s,mj1-ml,j1,mj1)*CG(l2,ml,self.s,mj1-ml,j2,mj2)*\
-                                angularPart
+        ml = mj1 + 0.5
+        if (abs(ml)-0.1<l1)and(abs(ml)-0.1<l2):
+
+            angularPart = 0.
+            if (abs(l1-l2-1)<0.1):
+                angularPart = ((l1**2-ml**2)/((2.*l1+1.)*(2.*l1-1.)))**0.5
+            elif(abs(l1-l2+1)<0.1):
+                angularPart = ((l2**2-ml**2)/((2.*l2+1.)*(2.*l2-1.)))**0.5
+
+            sumPart += CG(l1,ml,0.5,mj1-ml,j1,mj1)*CG(l2,ml,0.5,mj1-ml,j2,mj2)*\
+                        angularPart
+
+
+        ml = mj1 - 0.5
+        if (abs(ml)-0.1<l1)and(abs(ml)-0.1<l2):
+            angularPart = 0.
+            if (abs(l1-l2-1)<0.1):
+                angularPart = ((l1**2-ml**2)/((2.*l1+1.)*(2.*l1-1.)))**0.5
+            elif(abs(l1-l2+1)<0.1):
+                angularPart = ((l2**2-ml**2)/((2.*l2+1.)*(2.*l2-1.)))**0.5
+            sumPart += CG(l1,ml,0.5,mj1-ml,j1,mj1)*CG(l2,ml,0.5,mj1-ml,j2,mj2)*\
+                        angularPart
 
         #self.c.execute(''' INSERT INTO eFieldCoupling_angular
-        #                    VALUES (?,?,?, ?,?,?, ?,?)''',\
-        #                    [l1,2*j1,2*j1+mj1,l2,j2*2,2*j2+mj2,sumPart,s] )
+        #                    VALUES (?,?,?, ?,?,?,?, ?)''',\
+        #                    [l1,2*j1,j1+mj1,l2,j2*2,j2+mj2,s*2,sumPart] )
         #self.conn.commit()
 
         return sumPart

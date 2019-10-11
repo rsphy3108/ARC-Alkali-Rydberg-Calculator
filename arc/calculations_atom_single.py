@@ -227,7 +227,6 @@ class StarkMap:
 
         #print(sumPart**2)
         #print(self.atom.getAngularMatrixElementSrSr(l1,j1, mj1,l2,j2,mj2,l1,j1,mj1,l2,j2,mj2,s,1,1))
-        #print()
         if(abs(result*sumPart) > 0.0001):
          
             self.starklist.append([result*sumPart,n1,s*2+1, l1,j1, mj1, n2,s*2+1, l2,j2, mj2, result, sumPart ])
@@ -290,15 +289,11 @@ class StarkMap:
         self.s = s
         # save calculation details END
 
-        nbelow =  nMin -n
-        nabove = nMax -n
-        
-        nMin = int(ceil(n- self.atom.getQuantumDefect(n,l,j,s)+nbelow))
-        nMax = int(floor(n -  self.atom.getQuantumDefect(n,l,j,s)+nabove))
         
     
-        print(nMin)
-        print(nMax)
+        #print(nMin)
+        
+        #print(nMax)
         
         
         def getStarkStates(n_min, n_max, l_max, m, s):
@@ -322,28 +317,25 @@ class StarkMap:
             return state_list
     
         if(isinstance(self.atom, DivalentAtom)):
+            #takes into account defect shift
+            nbelow =  nMin -n
+            nabove = nMax -n
+        
+            nMin = int(ceil(n- self.atom.getQuantumDefect(n,l,j,s)+nbelow))
+            nMax = int(floor(n -  self.atom.getQuantumDefect(n,l,j,s)+nabove))
+        
             states = getStarkStates(nMin,nMax,maxL,mj,s)
         else:
-            for tn in xrange(nMin,nMax):
-    
-                for tl in xrange(min(maxL+1,tn)):
-                    
-                    #need to make all possible J states
-                    
-                    if self.s == 0.5 :
-                    
-                        if (abs(mj)-0.1<=float(tl)+self.s):
-                            #we also need to make all possible j
-                            states.append([tn,tl,float(tl)+self.s,mj])
-                        if (tl>0) and  (abs(mj)-0.1<=float(tl)-self.s):
-                                states.append([tn,tl,float(tl)-self.s,mj,self.s])
-                                
-                    else: 
-                        for tj in range(max(abs(tl-self.s),0),tl+self.s +1):
-                            if (abs(mj)-0.1<=tj):
-                                states.append(([tn,tl,tj,mj,self.s]))
+           for tn in xrange(nMin,nMax):
 
-        print(states)
+            for tl in xrange(min(maxL+1,tn)):
+                if (abs(mj)-0.1<=float(tl)+0.5):
+                    states.append([tn,tl,float(tl)+0.5,mj])
+
+                if (tl>0) and  (abs(mj)-0.1<=float(tl)-0.5):
+                    states.append([tn,tl,float(tl)-0.5,mj])
+
+        #print(states)
         dimension = len(states)
         if progressOutput:
             print("Found ",dimension," states.")
@@ -384,13 +376,12 @@ class StarkMap:
             self.mat1[ii][ii] = self.atom.getEnergy(states[ii][0],\
                                                states[ii][1],states[ii][2],self.s)\
                                 * C_e/C_h*1e-9 \
-                                #+ self.atom.getZeemanEnergyShift(
-                                #                states[ii][1],
-                                #                states[ii][2],
-                                #                states[ii][3],
-                                #                self.Bz) / C_h * 1.0e-9
+                                + self.atom.getZeemanEnergyShift(
+                                                states[ii][1],
+                                                states[ii][2],
+                                                states[ii][3],
+                                                self.Bz) / C_h * 1.0e-9
             # add off-diagonal element
-
             for jj in xrange(ii+1,dimension):
                 coupling = self._eFieldCouplingDivE(states[ii][0]\
                                                     ,states[ii][1],\
@@ -399,7 +390,6 @@ class StarkMap:
                                                     states[jj][1],\
                                                     states[jj][2],mj,self.s)*\
                             1.0e-9/C_h
-                #print(coupling)
                 self.mat2[jj][ii] = coupling
                 self.mat2[ii][jj] = coupling
 
@@ -755,8 +745,8 @@ class StarkMap:
             self.ax.set_ylabel(r"State energy, $E/h$ (GHz)")
 
 
-        self.ax.set_ylim(-20,20)
-        #self.ax.set_ylim(lowery,uppery)
+        #self.ax.set_ylim(-20,20)
+        self.ax.set_ylim(lowery,uppery)
 
         #self.ax.invert_yaxis()
         ##
@@ -1079,11 +1069,22 @@ class LevelPlot:
         while nFrom<=nTo:
             l = lFrom
             while l<=min(lTo,4,nFrom-1):
-                #if we do not make a negative j
-                for i in range(int(abs(l-self.s)),int(l+self.s+1),1):
+                if isinstance(self.atom, DivalentAtom):
+                    #if we do not make a negative j
+                    for i in range(int(abs(l-self.s)),int(l+self.s+1),1):
+                        print(i)
+                        self.listX.append(l)
+                        self.listY.append(self.atom.getEnergy(nFrom,l,i,self.s))
+                        self.levelLabel.append([nFrom, l, i, self.s])
+                else:
+                    if (l>0.5):
+                        self.listX.append(l)
+                        self.listY.append(self.atom.getEnergy(nFrom,l,l-0.5))
+                        self.levelLabel.append([nFrom, l, l-0.5])
                     self.listX.append(l)
-                    self.listY.append(self.atom.getEnergy(nFrom,l,i,self.s))
-                    self.levelLabel.append([nFrom, l, i, self.s])
+                    self.listY.append(self.atom.getEnergy(nFrom,l,l+0.5))
+                    self.levelLabel.append([nFrom, l, l+0.5])
+                
                     #self.listX.append(l)
                     #self.listY.append(self.atom.getEnergy(nFrom,l,l+self.self.s))
                     #self.levelLabel.append([nFrom, l, l+self.s])

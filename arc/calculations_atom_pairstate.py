@@ -620,11 +620,11 @@ class PairStateInteractions:
                                             states[j][0],states[j][1],states[j][2],
                                              states[j][3],states[j][4],states[j][5], limit, states[i][6])
 
-                if (states[i][0]==24 and states[j][0]==18):
-                    print("\n")
-                    print(states[i])
-                    print(states[j])
-                    print(coupled)
+                #if (states[i][0]==24 and states[j][0]==18):
+                #    print("\n")
+                #    print(states[i])
+                #    print(states[j])
+                #    print(coupled)
 
                 #if there is some coupling and the ns are within k range
                 if coupled and (abs(states[i][0]-states[j][0])<=k and\
@@ -673,7 +673,6 @@ class PairStateInteractions:
                             WHERE type='table' AND name='pair_angularMatrix';''')
         if (self.c.fetchone()[0] == 0):
             # create table
-            print('gothere')
             try:
                 self.c.execute('''CREATE TABLE IF NOT EXISTS pair_angularMatrix
                  (l1 TINYINT UNSIGNED, j1_x2 TINYINT UNSIGNED,
@@ -2517,12 +2516,25 @@ class StarkMapResonances:
         # M= mj1+mj2 is conserved with dipole-dipole interaction
 
         dmlist1 = [1,0]
-        if (self.state1[3] != 0.5 or self.state1[3] != 0):
+        if (self.state1[3] != 0.5):# or self.state1[3] != 0):
             dmlist1.append(-1)
         dmlist2 = [1,0]
-        if (self.state2[3] != 0.5 or self.state2[3] != 0):
+        if (self.state2[3] != 0.5):# or self.state2[3] != 0):
             dmlist2.append(-1)
-                
+
+        #if self.state1[3] == 0:
+        #   dmlist1 = [0]
+        #elif self.state1[3] == 1:
+        #   dmlist1 = [1,0,-1]
+        #else:       
+        #   dmlist1 = [1,0]
+
+        #if self.state2[3] == 0:
+        #   dmlist2 = [0]
+        #elif self.state2[3] == 1:
+        #   dmlist2 = [1,0,-1]
+        #else:       
+        #   dmlist2 = [1,0]   
 
             
         n1 = self.state1[0]
@@ -2565,7 +2577,7 @@ class StarkMapResonances:
                                     -self.pairStateEnergy
                             statec1 = sm1.basisStates[sm1.composition[i][j][0][1]]
                             statec2 = sm2.basisStates[sm2.composition[i][jj][0][1]]
-                            print(energy)
+                            #print(energy)
 
                             if (energy>eMin) and (energy<eMax) and\
                                 (abs(statec1[1]-self.state1[1])==1) and\

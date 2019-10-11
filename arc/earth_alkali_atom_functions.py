@@ -182,6 +182,7 @@ class DivalentAtom(Atom):
         #
         super(DivalentAtom,self).__init__(preferQuantumDefects,cpp_numerov)
 
+        self.quantumDefect = dict()
 
         deltas = []
         if(self.quantumDefectData == ""):
@@ -195,7 +196,6 @@ class DivalentAtom(Atom):
                 preferMeasuredEnergies = False
                 print("NIST level data file for "+self.level_labels[i]+" not specified. Quantum defects will be used for calcualtion of all series.")
             else:
-                print(self.level_labels[i])
                 levels, ref, err = self._parseLevelsFromNIST(os.path.join(self.dataFolder,\
                                                    self.levelDataFromNIST[i]), self.NISTdataLevels[self.level_labels[i]])
 
@@ -209,6 +209,7 @@ class DivalentAtom(Atom):
             print('The semi-classical approximations will be used for calculating raidial matrix elements')
             self.semi = True
 
+        self._readLiteratureValues()
 
         return
 
@@ -230,9 +231,7 @@ class DivalentAtom(Atom):
         f = open(full_filepath,"r")
 
         temp = np.full((levels+self.groundStateN+1,1), 999999999.0)
-        print(temp.shape)
-        print(levels)
-        print(self.groundStateN)
+        
         r = [""]*(levels+self.groundStateN +1)
         err = np.zeros(((levels+self.groundStateN +1),1))
         count = 0
@@ -344,7 +343,8 @@ class DivalentAtom(Atom):
         #If we havent prefered quantum defect but have chosen measured energy levels OR we are below defect fitting range
         if ( L < 4 and (self.preferMeasuredEnergies or n<self.minQuantumDefectN[term] ) and 
             n <= self.NISTdataLevels[term]+5 and self.sEnergy[term][n] <= self.ionisationEnergycm ): #or np.isnan(self.quantumDefect[term]).any():
-            print(n,L,J,S)
+            #print(self.preferMeasuredEnergies)  
+            #print(n,L,J,S)
 
             return self.sEnergy[term][n]
 
@@ -479,22 +479,6 @@ class DivalentAtom(Atom):
         """ returns total potential that electron feels
 
             Total potential = core potential + Spin-Orbit interaction
-[Errno 2] No such file or directory: '/home/homeblue01/8/rbjv28/.arc-data/strontium_literature_dme.csv'
-LeRoy radius = 1.2 mum
-gothere
-gothere
-gothere
-gothere
-gothere
-gothere
-gothere
-gothere
-gothere
-gothere
-gothere
-gothere
-gothere
-
             Args:
                 l (int): orbital angular momentum
                 s (float): spin angular momentum
@@ -522,8 +506,11 @@ gothere
         exit()
   
     def getZeemanEnergyShift(self, l, j, mj, magneticFieldBz,s):
-        
-        g_factor = 3/2 + (s*(s+1)-l*(l+1))/(2*j*(j+1))
+
+        if j == 0 :
+            g_factor = 0
+        else:
+            g_factor = 3/2 + (s*(s+1)-l*(l+1))/(2*j*(j+1))
         
         return physical_constants["Bohr magneton"][0] * magneticFieldBz* mj * g_factor
 
