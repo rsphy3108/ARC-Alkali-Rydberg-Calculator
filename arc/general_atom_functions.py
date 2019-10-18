@@ -59,7 +59,7 @@ sqlite3.register_adapter(np.float32, float)
 sqlite3.register_adapter(np.int64, int)
 sqlite3.register_adapter(np.int32, int)
 
-DPATH = os.path.join(os.path.expanduser('~'), '.arc-data')
+DPATH = os.path.join(os.path.expanduser('~'), '.darc-data')
 
 def setup_data_folder():
     """ Setup the data folder in the users home directory.
@@ -106,7 +106,7 @@ class Atom(object):
     NISTdataLevels = 0
     scaledRydbergConstant = 0 #: in eV
 
-    
+
     """ Contains list of modified Rydberg-Ritz coefficients for calculating
         quantum defects for [[ :math:`S_{1/2},P_{1/2},D_{3/2},F_{5/2}`],
         [ :math:`S_{1/2},P_{3/2},D_{5/2},F_{7/2}`]]."""
@@ -206,10 +206,11 @@ class Atom(object):
             if (preferQuantumDefects == False):
                 self.quadrupoleMatrixElementFile  = "NIST_"+self.quadrupoleMatrixElementFile
             try:
+
                 data = np.load(os.path.join(self.dataFolder,\
                                             self.quadrupoleMatrixElementFile),\
                                encoding = 'latin1')
-
+                print(data)
             except IOError as e:
                 print("Error reading quadrupoleMatrixElementFile File "+\
                     os.path.join(self.dataFolder,self.quadrupoleMatrixElementFile))
@@ -237,7 +238,7 @@ class Atom(object):
 
         return
     def _databaseInit(self):
-   
+
         self.conn = sqlite3.connect(os.path.join(self.dataFolder,\
                                                  self.precalculatedDB))
         self.c = self.conn.cursor()
@@ -423,13 +424,13 @@ class Atom(object):
             return 0
         else:
             if self.semi ==False:
-            
+
                 """
                     Radial part of the dipole matrix element
-        
+
                     Calculates :math:`\\int \\mathbf{d}r~R_{n_1,l_1,j_1}(r)\cdot \
                         R_{n_1,l_1,j_1}(r) \cdot r^3`.
-        
+
                     Args:
                         n1 (int): principal quantum number of state 1
                         l1 (int): orbital angular momentum of state 1
@@ -437,17 +438,17 @@ class Atom(object):
                         n2 (int): principal quantum number of state 2
                         l2 (int): orbital angular momentum of state 2
                         j2 (float): total angular momentum of state 2
-        
+
                     Returns:
                         float: dipole matrix element (:math:`a_0 e`).
                 """
                 semi = 0
-                
+
                 dl = abs(l1-l2)
                 dj = abs(j2-j2)
                 if not(dl==1 and (dj<1.1)):
                     return 0
-        
+
                 if (self.getEnergy(n1, l1, j1,s)>self.getEnergy(n2, l2, j2,s)):
                     temp = n1
                     n1 = n2
@@ -458,14 +459,14 @@ class Atom(object):
                     temp = j1
                     j1 = j2
                     j2 = temp
-        
+
                 n1 = int(n1)
                 n2 = int(n2)
                 l1 = int(l1)
                 l2 = int(l2)
                 j1_x2 = int(round(2*j1))
                 j2_x2 = int(round(2*j2))
-        
+
                 #if useLiterature:
                     # is there literature value for this DME? If there is, use the best one (smalles error)
                 #    self.c.execute('''SELECT dme FROM literatureDME WHERE
@@ -477,8 +478,8 @@ class Atom(object):
                 #    if (answer):
                         # we did found literature value
                 #        return answer[0]
-        
-        
+
+
                 # was this calculated before? If it was, retrieve from memory
                 self.c.execute('''SELECT dme FROM dipoleME WHERE
                  n1= ? AND l1 = ? AND j1_x2 = ? AND
@@ -487,7 +488,7 @@ class Atom(object):
                 dme = self.c.fetchone()
                 if (dme):
                     return dme[0]
-        
+
                 #LIZZY TEMP
                 step = 0.001
                 r1,psi1_r1 = self.radialWavefunction(l1,s,j1,\
@@ -498,17 +499,17 @@ class Atom(object):
                                                        self.getEnergy(n2, l2, j2,s)/27.211,\
                                                        self.alphaC**(1/3.0),\
                                                         2.0*n2*(n2+15.0), step)
-        
+
                 upTo = min(len(r1),len(r2))
-        
+
                 # note that r1 and r2 change in same staps, starting from the same value
                 dipoleElement = np.trapz(np.multiply(np.multiply(psi1_r1[0:upTo],psi2_r2[0:upTo]),\
                                                    r1[0:upTo]), x = r1[0:upTo])
-        
+
                 self.c.execute(''' INSERT INTO dipoleME VALUES (?,?,?, ?,?,?, ?,?,?)''',\
                                [n1,l1,j1_x2,n2,l2,j2_x2, dipoleElement,s,semi] )
                 self.conn.commit()
-        
+
                 return dipoleElement
             else:
                 semi = 1
@@ -524,7 +525,7 @@ class Atom(object):
                     temp = j1
                     j1 = j2
                     j2 = temp
-        
+
                 n1 = int(n1)
                 n2 = int(n2)
                 l1 = int(l1)
@@ -545,12 +546,12 @@ class Atom(object):
                      ORDER BY errorEstimate ASC''',(n1,l1,j1_x2,n2,l2,j2_x2,s))
 
                     answer = self.c.fetchone()
-                
+
                     if (answer):
                         # we did found literature value
                         return answer[0]
-        
-        
+
+
                 # was this calculated before? If it was, retrieve from memory
                 self.c.execute('''SELECT dme FROM dipoleME WHERE
                  n1= ? AND l1 = ? AND j1_x2 = ? AND
@@ -564,18 +565,18 @@ class Atom(object):
                     return dme[0]
                 #print('Using the semiclassical approch to calculating the Radial Matrix element!')
                 dipoleElement = self.getRadialMatrixElementSemiClassical(n1,l1,j1, n2, l2, j2, s)
-                
+
                 self.c.execute(''' INSERT INTO dipoleME VALUES (?,?,?, ?,?,?, ?,?,?)''',\
                            [n1,l1,j1_x2,n2,l2,j2_x2, float(dipoleElement),s,semi] )
                 self.conn.commit()
                 return dipoleElement
-                    
+
 
     def getRadialMatrixElementSemiClassical(self,n,l,j,n1,l1,j1, s=0.5):
         #get the effective principal number of both states
         nu = n - self.getQuantumDefect(n,l,j,s)
         nu1 = n1 - self.getQuantumDefect(n1,l1,j1,s)
-        
+
 
         #get the parameters required to calculate the sum
         l_c = (l+l1+1.)/2.
@@ -583,9 +584,9 @@ class Atom(object):
 
         delta_nu = nu- nu1
         delta_l = l1 -l
-       
-        #I am not sure if this correct 
-        
+
+        #I am not sure if this correct
+
         gamma  = (delta_l*l_c)/nu_c
 
         if delta_nu ==0:
@@ -606,7 +607,7 @@ class Atom(object):
     def getQuadrupoleMatrixElementSemiClassical(self,n,l,j,n1,l1,j1, s=0.5):#
         dl = abs(l1-l)
 
-        
+
         nu = n - self.getQuantumDefect(n,l,j,s)
         nu1 = n1 - self.getQuantumDefect(n1,l1,j1,s)
 
@@ -622,24 +623,24 @@ class Atom(object):
         if delta_nu ==0:
             q = np.array([1,0,0,0])
         else:
-        
+
             g0 = (1./(3.*delta_nu))*(mpmath.angerj(delta_nu-1.,-delta_nu) - mpmath.angerj(delta_nu+1,-delta_nu))
             g1 = -(1./(3.*delta_nu))*(mpmath.angerj(delta_nu-1.,-delta_nu) + mpmath.angerj(delta_nu+1,-delta_nu))
-        
+
             q = np.zeros((4,))
             q[0] = -(6./(5.*delta_nu))*g1
             q[1] = -(6./(5.*delta_nu))*g0 + (6./5.)*np.sin(pi*delta_nu)/(pi*delta_nu**2)
             q[2] = -(3./4.)*(6./(5.*delta_nu) *g1 +g0)
             q[3] = 0.5*(delta_nu*0.5*q[0] +q[1])
-            
+
         sm = 0
-        
+
         if dl ==0:
             quadrupoleElement = (5./2.)*nu_c**4*(1.-(3.*l_c**2)/(5*nu_c**2))
             for p in range(0,2,1):
                 sm += gamma**(2*p)*q[2*p]
             return quadrupoleElement*sm
-        
+
         elif dl == 2:
             quadrupoleElement = (5./2.)*nu_c**4*(1-(l_c +1)**2/(nu_c**2))**0.5* (1-(l_c +2)**2/(nu_c**2))**0.5
             for p in range(0,4):
@@ -675,7 +676,7 @@ class Atom(object):
         if self.semi == False:
             if not ((dl==0 or dl==2 or dl==1)and (dj<2.1)):
                 return 0
-    
+
             if (self.getEnergy(n1, l1, j1,s)>self.getEnergy(n2, l2, j2,s)):
                 temp = n1
                 n1 = n2
@@ -686,22 +687,23 @@ class Atom(object):
                 temp = j1
                 j1 = j2
                 j2 = temp
-    
+
             n1 = int(n1)
             n2 = int(n2)
             l1 = int(l1)
             l2 = int(l2)
             j1_x2 = int(round(2*j1))
             j2_x2 = int(round(2*j2))
-    
+
             # was this calculated before? If yes, retrieve from memory.
             self.c.execute('''SELECT qme FROM quadrupoleME WHERE
              n1= ? AND l1 = ? AND j1_x2 = ? AND
-             n2 = ? AND l2 = ? AND j2_x2 = ? AND s = ?''',(n1,l1,j1_x2,n2,l2,j2_x2,s))
+             n2 = ? AND l2 = ? AND j2_x2 = ? AND s = ?
+             and semi = ?''',(n1,l1,j1_x2,n2,l2,j2_x2,s,semi))
             qme = self.c.fetchone()
             if (qme):
                 return qme[0]
-    
+
             # if it wasn't, calculate now
             step = 0.001
             r1, psi1_r1 = self.radialWavefunction(l1,s,j1,\
@@ -712,24 +714,55 @@ class Atom(object):
                                                    self.getEnergy(n2, l2, j2,s)/27.211,\
                                                    self.alphaC**(1/3.0), \
                                                    2.0*n2*(n2+15.0), step)
-    
+
             upTo = min(len(r1),len(r2))
-    
+
             # note that r1 and r2 change in same staps, starting from the same value
             quadrupoleElement = np.trapz(np.multiply(np.multiply(psi1_r1[0:upTo],psi2_r2[0:upTo]),\
                                                    np.multiply(r1[0:upTo],r1[0:upTo])),\
                                          x = r1[0:upTo])
-    
-    
-    
-            self.c.execute(''' INSERT INTO quadrupoleME VALUES (?,?,?, ?,?,?, ?,?)''',\
-                           [n1,l1,j1_x2,n2,l2,j2_x2, quadrupoleElement,s] )
+
+
+
+            self.c.execute(''' INSERT INTO quadrupoleME VALUES (?,?,?, ?,?,?, ?,?,?)''',\
+                           [n1,l1,j1_x2,n2,l2,j2_x2, quadrupoleElement,s,self.semi] )
             self.conn.commit()
-    
+
             return quadrupoleElement
-        else: 
-            return self.getQuadrupoleMatrixElementSemiClassical(n1,l1,j1,n2,l2,j2,s)
-    
+        else:
+            if (self.getEnergy(n1, l1, j1,s)>self.getEnergy(n2, l2, j2,s)):
+                temp = n1
+                n1 = n2
+                n2 = temp
+                temp = l1
+                l1 = l2
+                l2 = temp
+                temp = j1
+                j1 = j2
+                j2 = temp
+
+            n1 = int(n1)
+            n2 = int(n2)
+            l1 = int(l1)
+            l2 = int(l2)
+            j1_x2 = int(round(2*j1))
+            j2_x2 = int(round(2*j2))
+
+            # was this calculated before? If yes, retrieve from memory.
+            self.c.execute('''SELECT qme FROM quadrupoleME WHERE
+             n1= ? AND l1 = ? AND j1_x2 = ? AND
+             n2 = ? AND l2 = ? AND j2_x2 = ? AND s = ?
+             and semi = ?''',(n1,l1,j1_x2,n2,l2,j2_x2,s,semi))
+            qme = self.c.fetchone()
+            if (qme):
+                return qme[0]
+            quadrupoleElement =  self.getQuadrupoleMatrixElementSemiClassical(n1,l1,j1,n2,l2,j2,s)
+            self.c.execute(''' INSERT INTO quadrupoleME VALUES (?,?,?, ?,?,?, ?,?,?)''',\
+                           [n1,l1,j1_x2,n2,l2,j2_x2, quadrupoleElement,s,self.semi] )
+            self.conn.commit()
+
+            return quadrupoleElement
+
     def getC6term(self,n,l,j, n1,l1,j1, n2,l2,j2, m,mm,m1, m2,q1,q2,semi):
         """
             C6 interaction term for the given two pair-states
@@ -814,7 +847,7 @@ class Atom(object):
 
         return -d1d2**2/(C_e*(self.getEnergy(n1,l1,j1)+\
                                      self.getEnergy(n2,l2,j2)-\
-                                     2*self.getEnergy(n,l,j)))          
+                                     2*self.getEnergy(n,l,j)))
 
     def getC3term(self,n,l,j,n1,l1,j1,n2,l2,j2):
         """
@@ -843,8 +876,8 @@ class Atom(object):
         d2 = self.getRadialMatrixElement(n,l,j,n2,l2,j2)
         d1d2 = 1/(4.0*pi*epsilon_0)*d1*d2*C_e**2*\
                 (physical_constants["Bohr radius"][0])**2
-        return d1d2     
-        
+        return d1d2
+
     def getEnergyDefect(self,n,l,j,n1,l1,j1,n2,l2,j2,s = 0.5):
         """
             Energy defect for the given two pair-states (one of the state has
@@ -970,7 +1003,7 @@ class Atom(object):
         if (dl == 1 and abs(j-j1)<1.1):
             #print(n," ",l," ",j," ",n1," ",l1," ",j1)
             return self.getRadialMatrixElement(n,l,j,n1,l1,j1,s)
-           
+
         elif (dl==0 or dl==1 or dl==2) and(abs(j-j1)<2.1):
             # quadrupole coupling
             #return 0.
@@ -995,9 +1028,9 @@ class Atom(object):
     def _readLiteratureValues(self):
         # clear previously saved results, since literature file
         # might have been updated in the meantime
-        
+
         #Lizzy GOING TO HAVE TO SORT THIS OUT PROPERLY
-        
+
         self.c.execute('''DROP TABLE IF EXISTS literatureDME''')
         self.c.execute('''SELECT COUNT(*) FROM sqlite_master
                         WHERE type='table' AND name='literatureDME';''')
@@ -1063,9 +1096,9 @@ class Atom(object):
                         errorEstimate = float(row[10])
                         ref = row[11]
                         refdoi = row[12]
-                        
+
                     else:
-                        
+
 
                         typeOfSource = int(row[10])  # 0 = experiment; 1 = theory
                         errorEstimate = float(row[11])
@@ -1218,75 +1251,75 @@ class Atom(object):
                          abs(CG(l, mj - 0.5, 0.5, 0.5, j, mj))**2
         return prefactor * sumOverMl
 
-    
+
     #==================== Quantum Defect fitting routine =============
     #This code has been developed by Paul Huillery.
     def QuantumDefectFit(self,filename):
         '''filename- str  file name for quantum defects to be written to
-        
+
             filename will have defects written to them in form:
                 Series, lowern, uppern, \delta0, delta2, delta 4, energy_ref
         '''
-    
+
         def E(n,d0,d2,d4) :
             return self.ionisationEnergycm - self.scaledRydbergConstant/(n-(d0 + d2/(n-d0)**2 + d4/(n-d0)**4))**2
-    
+
         def fitting(E_data, n_data, nLower, nUpper, series ):
             '''
             This will fit the quantum defects for a sub set of n values. These will then have to be averaged over
-            to obtain the quantum defect 
-            
+            to obtain the quantum defect
+
             '''
-            #if there is that range 
+            #if there is that range
             if(nLower in n_data) and (nUpper in n_data):
-            
+
                 #we need to select the data
                 lower_idx = int(np.where(n_data == nLower)[0])
                 upper_idx = int(np.where(n_data == nUpper)[0])
-                
+
                 #print(lower_idx)
                 #print(upper_idx)
-                
+
                 E_data = E_data[lower_idx: upper_idx+1]
                 n_data = n_data[lower_idx: upper_idx+1]
-                
+
                 #print(E_data)
                 #print(n_data)
-                
+
                 E_err = np.zeros(len(n_data))+0.001
-                
+
                 indexes = np.arange(len(n_data))
-                 
+
                 nb_of_type = 5
                 nb_of_subset = 1000
                 my_subsets = []
-                 
+
                 for t in range(nb_of_type) :
                     for i in range(nb_of_subset) :
                         cutted_indexes = np.random.choice(indexes,15+t)
-                        
+
                         #cutted_indexes = indexes
                         my_subsets.append(cutted_indexes)
-                 
+
                 res = np.zeros((nb_of_type*nb_of_subset,3))
                 chi_2 = np.zeros(nb_of_type*nb_of_subset)
-                 
+
                 initial_guess = (2,0,0)
-                 
+
                 a = 100
-                
+
                 for i in range(nb_of_type*nb_of_subset) :
-             
+
                     this_n_data, this_qd_data, this_err_data = [], [], []
-                    
+
                     for d in range(len(my_subsets[i])) :
                         this_n_data.append(n_data[my_subsets[i][d]])
                         if n_data[my_subsets[i][d]] < a :
                            a = n_data[my_subsets[i][d]]
                         this_qd_data.append(E_data[my_subsets[i][d]])
                         this_err_data.append(E_err[my_subsets[i][d]])
-                        
-                    #turn to numpy arrays     
+
+                    #turn to numpy arrays
                     this_n_data = np.array(this_n_data)
                     this_qd_data = np.array(this_qd_data)
                     this_err_data = np.array(this_err_data)
@@ -1294,64 +1327,64 @@ class Atom(object):
                     #    print(this_n_data)
                     #    print(this_qd_data)
                     #    print(this_err_data)
-                    
+
                     #do the fitting
                     popt_s, pcov_s = curve_fit(E, this_n_data, this_qd_data, initial_guess, this_err_data, True)
                     res[i,0] = popt_s[0]
                     res[i,1] = popt_s[1]
                     res[i,2] = popt_s[2]
-                     
+
                     #print pcov_s[0,0]**0.5
-                 
+
                     for j in range(len(my_subsets[i])) :
                         delta = E(n_data[my_subsets[i][j]],popt_s[0],popt_s[1],popt_s[2]) - E_data[my_subsets[i][j]]
                         sigma = E_err[my_subsets[i][j]]
                         chi_2[i] += (delta/sigma)**2
-                         
-                    chi_2[i] /= len(my_subsets[i])-3   
-                
-                # we take the quantum defects to be the mean of all quantum defects fitted. 
+
+                    chi_2[i] /= len(my_subsets[i])-3
+
+                # we take the quantum defects to be the mean of all quantum defects fitted.
                 return res, chi_2
             else:
                 print('There is no data entry for either '+ str(nLower) + ' or ' +str(nUpper))
                 print('Please select a different range' )
-            return [0],0 
-        
+            return [0],0
+
         csv_data = []
-        
-        
+
+
         #this will refit the quantum defects for all energy files given in self.NISTDATAFILES
-        
+
         for file in self.levelDataFromNIST:
             #get the series from the filename
             series = str(file[3:6])
             print(series)
-            
+
             data = np.genfromtxt(DPATH+'/'+file, delimiter = ',')
-            
-            
+
+
             mask = (~np.isnan(data[:,0:2])).all(axis =1)
-            
+
             data = data[mask,:]
             #print(data)
-                
+
             n = data[:,0]
             e = data[:,1]
-            
-            #remove nan. 
-            
-            
+
+            #remove nan.
+
+
             #print(self.defectFittingRange)
             lower_fit_n = self.defectFittingRange[series][0]
             upper_fit_n = self.defectFittingRange[series][1]
-            
-            
+
+
             qd_coeffs, chi_squared = fitting(e,n, lower_fit_n, upper_fit_n,series)
-            
+
             print('chi_squared',np.mean(chi_squared))
             #if (series == '1D2'):
             #    print(e)
-            
+
             #S    print(qd_coeffs)
             if (len(qd_coeffs) != 1):
             #w
@@ -1359,7 +1392,7 @@ class Atom(object):
                 deltas.append(np.mean(qd_coeffs[:,0])) #np.std(qd_coeffs[:,0]))
                 deltas.append(np.mean(qd_coeffs[:,1])) #np.std(qd_coeffs[:,1]))
                 deltas.append(np.mean(qd_coeffs[:,2])) #np.std(qd_coeffs[:,2]))
-                
+
 
                 print(np.mean(qd_coeffs[:,0]),np.std(qd_coeffs[:,0]))#
                 print(np.mean(qd_coeffs[:,1]),np.std(qd_coeffs[:,1]))
@@ -1370,9 +1403,9 @@ class Atom(object):
 
         #print(np.array(csv_data))
         np.savetxt(filename,np.array(csv_data),delimiter = "," , fmt='%s')
-            
-        return 
-        
+
+        return
+
 
 
 def NumerovBack(innerLimit,outerLimit,kfun,step,init1,init2):
@@ -1417,13 +1450,13 @@ def NumerovBack(innerLimit,outerLimit,kfun,step,init1,init2):
 
     br = br-1
     x = sqrt(innerLimit)+step*(br-1)
-   
+
     sol[br] = (2.*(1.-5.0/12.0*step**2*kfun(x))*init1-\
                (1.+1./12.0*step**2*kfun(x+step))*init2)/\
                (1+1/12.0*step**2*kfun(x-step))
     rad[br] = x
 
-    
+
     x = x-step
     br = br-1
 

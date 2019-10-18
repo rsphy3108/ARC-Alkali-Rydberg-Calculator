@@ -54,7 +54,7 @@ sqlite3.register_adapter(np.int64, int)
 sqlite3.register_adapter(np.int32, int)
 
 #taken directly from alkali_atom_functions
-DPATH = os.path.join(os.path.expanduser('~'), '.arc-data')
+DPATH = os.path.join(os.path.expanduser('~'), '.darc-data')
 
 def setup_data_folder():
     """ Setup the data folder in the users home directory.
@@ -154,12 +154,12 @@ class DivalentAtom(Atom):
 
     extrapolate_data = True #should we extrapolate the Rydberg-Ritz values to n larger than that for which it was originally fitted? (This will only extrapolate
     #for n larger than the one fitted)
-    
+
     defectFittingRange ={}
-    
+
     modelPotential_coef = {}
 
-    
+
     preferMeasuredEnergies = False
     #semi = False
     wignerEkert = False
@@ -178,7 +178,7 @@ class DivalentAtom(Atom):
         # getEnergy(...) will always return measured, not calculated energy levels
 
         #loop over all the different spectral lines
-        #This calls the initialiser function for the Atom class, to do all of the 
+        #This calls the initialiser function for the Atom class, to do all of the
         #
         super(DivalentAtom,self).__init__(preferQuantumDefects,cpp_numerov)
 
@@ -202,8 +202,8 @@ class DivalentAtom(Atom):
                 self._addEnergy(levels, self.level_labels[i], ref, err, uncertainty)
             #set up the quantum defects
             #self.quantumDefect[self.level_labels[i]] = deltas[i]
-        
-        #check to see if we have model potential params 
+
+        #check to see if we have model potential params
         if not self.modelPotential_coef:
             print('There are no model potential paramters for this atom')
             print('The semi-classical approximations will be used for calculating raidial matrix elements')
@@ -213,8 +213,8 @@ class DivalentAtom(Atom):
 
         return
 
- 
-        
+
+
     def _parseLevelsFromNIST(self,fileData,levels):
         """
             Parses the level energies from CSV file we have of the energy values
@@ -225,13 +225,13 @@ class DivalentAtom(Atom):
             returns:
                 array (levels, 3) - array to be passed to the sEnergy dictionary.
             """
-            
+
         full_filepath = os.path.join(self.dataFolder,fileData)
-        
+
         f = open(full_filepath,"r")
 
         temp = np.full((levels+self.groundStateN+1,1), 999999999.0)
-        
+
         r = [""]*(levels+self.groundStateN +1)
         err = np.zeros(((levels+self.groundStateN +1),1))
         count = 0
@@ -261,7 +261,7 @@ class DivalentAtom(Atom):
 
         #deltas = np.zeros((14,3))
         full_filepath = os.path.join(self.dataFolder,fileName)
-        
+
         f = open(full_filepath, 'r')
         counter = 0
         for line in f:
@@ -291,7 +291,7 @@ class DivalentAtom(Atom):
                     - [n,0] - energy value relative to nonexcited level (= 0 eV)
         """
         #this is slow so make it more pythonic?
-        
+
         #/8065.544 comes from cm-1 to eV
         if label in self.extraLevels:
             for n in range(self.extraLevels[label],energyNIST.shape[0]):
@@ -335,15 +335,15 @@ class DivalentAtom(Atom):
         """
         #creates the string term.
         term = self.getTerm(L,S,J)
-       
+
         #energy_arr = self.sEnergy[term]
 
-       
+
 
         #If we havent prefered quantum defect but have chosen measured energy levels OR we are below defect fitting range
-        if ( L < 4 and (self.preferMeasuredEnergies or n<self.minQuantumDefectN[term] ) and 
+        if ( L < 4 and (self.preferMeasuredEnergies or n<self.minQuantumDefectN[term] ) and
             n <= self.NISTdataLevels[term]+5 and self.sEnergy[term][n] <= self.ionisationEnergycm ): #or np.isnan(self.quantumDefect[term]).any():
-            #print(self.preferMeasuredEnergies)  
+            #print(self.preferMeasuredEnergies)
             #print(n,L,J,S)
 
             return self.sEnergy[term][n]
@@ -392,7 +392,7 @@ class DivalentAtom(Atom):
         returns idx - int corresponding to its index
         '''
         return self.level_labels.index(term)
-    
+
     def getQuantumNumbers(self,term):
         """Takes a term scheme and turns it into its component L,S,J values."""
         s = (int(term[0]) -1.)/2.
@@ -425,7 +425,7 @@ class DivalentAtom(Atom):
             Returns:
                 float: quantum defect
         """
-        
+
         if(L>3):
             defect = 0
         else:
@@ -444,7 +444,7 @@ class DivalentAtom(Atom):
                     self.quantumDefect[term][2]/((n-self.quantumDefect[term][0])**4)
 
         return defect
-    
+
     def getNumberDensity(self,pressure,temperature):
         """ Atom number density at given temperature
 
@@ -460,8 +460,8 @@ class DivalentAtom(Atom):
                 float: atom concentration in :math:`1/m^3`
         """
         return pressure/(C_k*temperature)
-    
-    
+
+
     def corePotential(self,l,r):
         print("Error: Function not supported for Class: DivalentAtom")
         exit()
@@ -473,8 +473,8 @@ class DivalentAtom(Atom):
     def getPressure(self,temperature):
         print("Error: Function not supported for Class: DivalentAtom")
         exit()
-    
-    
+
+
     def potential(self,l,s,j,r):
         """ returns total potential that electron feels
 
@@ -489,7 +489,7 @@ class DivalentAtom(Atom):
         """
         #we have no spin orbit coupling and hence no extra term
         term = self.getTerm(l,s,j)
-        if (l>3): 
+        if (l>3):
             #a,b,c = 0,0,0
             #return -1/r
 
@@ -499,25 +499,25 @@ class DivalentAtom(Atom):
             a,b,c = self.modelPotential_coef[term]
         #print(r,a,b,c)
             return -1/r*(1.0+(self.Z-1)*exp(-a*r)) +b*exp(-c*r)
-        
+
     def getStateLifetime(self,n,l,j,temperature=0,includeLevelsUpTo = 0):
 
         print("Error: Function not supported for Class: DivalentAtom")
         exit()
-  
+
     def getZeemanEnergyShift(self, l, j, mj, magneticFieldBz,s):
 
         if j == 0 :
             g_factor = 0
         else:
             g_factor = 3/2 + (s*(s+1)-l*(l+1))/(2*j*(j+1))
-        
+
         return physical_constants["Bohr magneton"][0] * magneticFieldBz* mj * g_factor
 
     def getAngularMatrixElement(self, l, s, j, m, l1, s1, j1, m1,p):
-        ''' 
+        '''
         Angular matrix element.
-        
+
         ***INSERT CHRISTOPHES CITATION
         '''
                          #sum over all polariasations
@@ -525,17 +525,17 @@ class DivalentAtom(Atom):
         elem = sign * sqrt((2*j+1)*(2*l+1))
         elem = elem * CG(l,0,1,0,l1,0) * CG(j,m,1,p,j1,m1)
         elem = elem * Wigner6j(j, 1, j1, l1, s, l, True)
-       
+
         return elem
 
     def getAngularMatrixElementPaul(self,l,s,j,m,l1,s1,j1,m1,p):
         pref = (-1)**(1+s+j+j1-m)* sqrt((2*l+1)*(2*l1+1)*(2*j+1)*(2*j1+1))
         threeJ = Wigner3j(l,1,l1,0,0,0)
         sixJ = Wigner6j(l,s,j,j1,1,l1)
-        
+
         threejm = Wigner3j(j,1,j1,-m,p,m1)
         return pref*threeJ*sixJ*threejm
-    
+
     def getDipoleMatrixElement(self,n,l,j,m,n1,l1,j1,m1,p,s):
         """
         Dipole matrix element
@@ -544,19 +544,19 @@ class DivalentAtom(Atom):
 
             Returns:
                 float: dipole matrix element( :math:`a_0 e`)
-        NOTE: The angular matrix element used here is for a singular divalent atom, For the angular matrix element of 
-        two intracting strontium atoms, use the angular matrix element provied in Pairstate interactions. 
+        NOTE: The angular matrix element used here is for a singular divalent atom, For the angular matrix element of
+        two intracting strontium atoms, use the angular matrix element provied in Pairstate interactions.
 
-        
+
         """
         if abs(p)>1.1:
             return 0
-        
+
         if self.wignerEkert:
             return (-1)**(int(j-m))*\
                 Wigner3j(j, 1, j1, -m, -p, m1)*\
                 self.getReducedMatrixElementJ(n,l,j,n1,l1,j1,s)
-        else:    
+        else:
             return self.getRadialMatrixElement(n,l,j,n1,l1,j1,s)*self.getAngularMatrixElement(l,s,j ,m,l1,s,j1,m1,p)
 
     def getC6term(self,n,l,s,j,n1,l1,s1,j1,n2,l2,s2,j2):
@@ -652,9 +652,9 @@ class DivalentAtom(Atom):
     def _readLiteratureValues(self):
         # clear previously saved results, since literature file
         # might have been updated in the meantime
-        
+
         #Lizzy GOING TO HAVE TO SORT THIS OUT PROPERLY
-        
+
         self.c.execute('''DROP TABLE IF EXISTS literatureDME''')
         self.c.execute('''SELECT COUNT(*) FROM sqlite_master
                         WHERE type='table' AND name='literatureDME';''')
@@ -709,7 +709,7 @@ class DivalentAtom(Atom):
                     # convered from reduced DME in J basis (symmetric notation)
                     # to radial part of dme as it is saved for calculated values
                     dme = float(row[7])
-                    
+
 
                     comment = row[8]
                     typeOfSource = int(row[10])  # 0 = experiment; 1 = theory

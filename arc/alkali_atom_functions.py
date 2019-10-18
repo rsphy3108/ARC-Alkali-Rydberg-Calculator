@@ -60,7 +60,7 @@ sqlite3.register_adapter(np.float32, float)
 sqlite3.register_adapter(np.int64, int)
 sqlite3.register_adapter(np.int32, int)
 
-DPATH = os.path.join(os.path.expanduser('~'), '.arc-data')
+DPATH = os.path.join(os.path.expanduser('~'), '.darc-data')
 
 def setup_data_folder():
     """ Setup the data folder in the users home directory.
@@ -82,7 +82,7 @@ class AlkaliAtom(Atom):
                      [[0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0],\
                       [0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0],\
                       [0.0,0.0,0.0,0.0,0.0,0.0]]]
-                      
+
     a1,a2,a3,a4,rc = [0],[0],[0],[0],[0]
     """
         Model potential parameters fitted from experimental observations for
@@ -92,7 +92,7 @@ class AlkaliAtom(Atom):
     def __init__(self,preferQuantumDefects=True,cpp_numerov=True):
 
         # should the wavefunction be calculated with Numerov algorithm implemented in C; if false, it uses Python implementation that is much slower
-        #This calls the Initalizer for the Atom function, to initalise 
+        #This calls the Initalizer for the Atom function, to initalise
         #all datebases and cursors
         super(AlkaliAtom,self).__init__(preferQuantumDefects,cpp_numerov)
 
@@ -122,7 +122,7 @@ class AlkaliAtom(Atom):
 
         return
 
-    
+
 
     def corePotential(self,l,r):
         """ core potential felt by valence electron
@@ -179,7 +179,7 @@ class AlkaliAtom(Atom):
             # act as if it is a Hydrogen atom
             return -1./r+self.alpha**2/(2.0*r**3)*(j*(j+1.0)-l*(l+1.0)-s*(s+1))/2.0
 
-    
+
 
     def _parseLevelsFromNIST(self,fileData):
         """
@@ -249,7 +249,7 @@ class AlkaliAtom(Atom):
             # j = l+1/2
             self.sEnergy[l, n] = energyNIST - self.ionisationEnergy
 
-    
+
 
     def getEnergy(self,n,l,j,s = 0.5):
         """
@@ -345,7 +345,7 @@ class AlkaliAtom(Atom):
                     self.quantumDefect[1][l][5]/((n-self.quantumDefect[1][l][0])**10)
         return defect
 
-    
+
     def getReducedMatrixElementJ_asymmetric(self,n1,l1,j1,n2,l2,j2,s=0.5):
         """
             Reduced matrix element in :math:`J` basis, defined in asymmetric
@@ -391,7 +391,7 @@ class AlkaliAtom(Atom):
             temp = j1
             j1 = j2
             j2 = temp
-        #Can I take this out?    
+        #Can I take this out?
         #s = round(float((l1-l2+1.0))/2.0+j2+l1+1.0+0.5)
         return (-1)**(int((l2+l1+3.)/2.+s+j2))*\
                 sqrt((2.0*j2+1.0)*(2.0*l1+1.0))*\
@@ -416,7 +416,7 @@ class AlkaliAtom(Atom):
                     reduced dipole matrix element in :math:`L` basis
                     :math:`\\langle l || er || l' \\rangle` (:math:`a_0 e`).
         """
-     
+
         r=  self.getRadialMatrixElement(n1, l1, j1, n2, l2, j2,s)
 
         return (-1)**l1*sqrt((2.0*l1+1.0)*(2.0*l2+1.0))*\
@@ -522,7 +522,7 @@ class AlkaliAtom(Atom):
                 C_e*physical_constants["Bohr radius"][0]
         freq = electricFieldAmplitude*abs(dipole)/hbar
         return freq
-    
+
     def getTransitionRate(self,n1,l1,j1,n2,l2,j2,temperature = 0.):
         """
             Transition rate due to coupling to vacuum modes (black body included)
@@ -681,7 +681,7 @@ class AlkaliAtom(Atom):
         """
         return sqrt( 8.*C_k*temperature/(pi*self.mass) )
 
-    
+
 
     def getZeemanEnergyShift(self, l, j, mj, magneticFieldBz):
         """
@@ -704,4 +704,3 @@ class AlkaliAtom(Atom):
             sumOverMl += (mj - 0.5 + gs * 0.5) * \
                          abs(CG(l, mj - 0.5, 0.5, 0.5, j, mj))**2
         return prefactor * sumOverMl
-
